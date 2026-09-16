@@ -1,4 +1,5 @@
 import pandas as pd
+import networkx as nx
 
 df = pd.read_csv("pases_inglaterra.csv")
 
@@ -29,3 +30,15 @@ aristas = (
 )
 
 print(aristas.head(10))
+
+G = nx.DiGraph()
+
+for _, fila in aristas.iterrows():
+    G.add_edge(
+        fila["jugador_nombre"],
+        fila["receptor_nombre"],
+        weight=fila["peso"]
+    )
+
+print("Nodos:", G.number_of_nodes())
+print("Aristas:", G.number_of_edges())
