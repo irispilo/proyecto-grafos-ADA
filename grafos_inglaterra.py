@@ -97,16 +97,6 @@ df_metricas.to_csv("metricas_jugadores.csv", index=False)
 
 #visualización:
 
-for _, fila in aristas.iterrows():
-    G.add_edge(
-        fila["jugador_nombre"],
-        fila["receptor_nombre"],
-        weight=fila["peso"]
-    )
-
-print("Nodos:", G.number_of_nodes())
-print("Aristas:", G.number_of_edges())
-
 plt.figure(figsize=(14, 10))
 
 pos = nx.spring_layout(G, seed=42, k=0.7)
