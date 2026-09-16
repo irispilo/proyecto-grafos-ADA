@@ -47,6 +47,48 @@ for _, fila in aristas.iterrows():
 print("Nodos:", G.number_of_nodes())
 print("Aristas:", G.number_of_edges())
 
+metricas = []
+
+for jugador in G.nodes():
+    pases_dados = G.out_degree(jugador, weight="weight")
+    pases_recibidos = G.in_degree(jugador, weight="weight")
+    conexiones_salida = G.out_degree(jugador)
+    conexiones_entrada = G.in_degree(jugador)
+
+    metricas.append({
+        "jugador": jugador,
+        "pases_dados": pases_dados,
+        "pases_recibidos": pases_recibidos,
+        "total_participacion": pases_dados + pases_recibidos,
+        "conexiones_salida": conexiones_salida,
+        "conexiones_entrada": conexiones_entrada
+    })
+
+df_metricas = pd.DataFrame(metricas)
+
+df_metricas = df_metricas.sort_values(
+    "total_participacion",
+    ascending=False
+)
+
+print("\nMetricas principales:")
+print(df_metricas.head(10))
+
+
+df_metricas.to_csv("metricas_jugadores.csv", index=False)
+
+#visualización:
+
+for _, fila in aristas.iterrows():
+    G.add_edge(
+        fila["jugador_nombre"],
+        fila["receptor_nombre"],
+        weight=fila["peso"]
+    )
+
+print("Nodos:", G.number_of_nodes())
+print("Aristas:", G.number_of_edges())
+
 plt.figure(figsize=(14, 10))
 
 pos = nx.spring_layout(G, seed=42, k=0.7)
@@ -84,3 +126,4 @@ plt.axis("off")
 plt.tight_layout()
 plt.savefig("grafo_inglaterra.png", dpi=300)
 plt.show()
+
