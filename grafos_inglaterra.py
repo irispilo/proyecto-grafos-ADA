@@ -19,3 +19,13 @@ df_limpio = df_completos[columnas].copy()
 print("Pases en fase de grupos:", len(df_grupos))
 print("Pases completos:", len(df_limpio))
 print(df_limpio.head())
+
+aristas = (
+    df_limpio
+    .groupby(["jugador_nombre", "receptor_nombre"])
+    .size()
+    .reset_index(name="peso")
+    .sort_values("peso", ascending=False)
+)
+
+print(aristas.head(10))
