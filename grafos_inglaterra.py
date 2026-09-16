@@ -33,9 +33,27 @@ aristas = (
     .sort_values("peso", ascending=False)
 )
 
+# para grafo 2
 print(aristas.head(10))
 
+aristas_fuertes = aristas[aristas["peso"] >= 20].copy()
+
+print("\nConexiones fuertes:")
+print(aristas_fuertes)
+
+
 G = nx.DiGraph()
+
+G_fuertes = nx.DiGraph()
+
+for _, fila in aristas_fuertes.iterrows():
+    G_fuertes.add_edge(
+        fila["jugador_nombre"],
+        fila["receptor_nombre"],
+        weight=fila["peso"]
+    )
+#------
+
 
 for _, fila in aristas.iterrows():
     G.add_edge(
@@ -125,5 +143,55 @@ plt.title("Grafo de pases completados - Inglaterra, fase de grupos")
 plt.axis("off")
 plt.tight_layout()
 plt.savefig("grafo_inglaterra.png", dpi=300)
-plt.show()
+plt.close()
+
+
+#segunda visualización
+
+plt.figure(figsize=(14, 10))
+
+pos_fuertes = nx.spring_layout(G_fuertes, seed=42, k=0.9)
+
+pesos_fuertes = [G_fuertes[u][v]["weight"] for u, v in G_fuertes.edges()]
+grosor_fuertes = [peso / 8 for peso in pesos_fuertes]
+
+nx.draw_networkx_nodes(
+    G_fuertes,
+    pos_fuertes,
+    node_size=1600,
+    node_color="lightcoral"
+)
+
+nx.draw_networkx_edges(
+    G_fuertes,
+    pos_fuertes,
+    width=grosor_fuertes,
+    arrows=True,
+    arrowstyle="->",
+    arrowsize=18,
+    edge_color="gray",
+    alpha=0.7
+)
+
+nx.draw_networkx_labels(
+    G_fuertes,
+    pos_fuertes,
+    font_size=8,
+    font_weight="bold"
+)
+
+etiquetas_aristas = nx.get_edge_attributes(G_fuertes, "weight")
+
+nx.draw_networkx_edge_labels(
+    G_fuertes,
+    pos_fuertes,
+    edge_labels=etiquetas_aristas,
+    font_size=7
+)
+
+plt.title("Conexiones fuertes de pases - Inglaterra, fase de grupos")
+plt.axis("off")
+plt.tight_layout()
+plt.savefig("grafo_inglaterra_conexiones_fuertes.png", dpi=300)
+plt.close()
 
