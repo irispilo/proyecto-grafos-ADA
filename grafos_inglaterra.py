@@ -1,5 +1,9 @@
 import pandas as pd
 import networkx as nx
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 
 df = pd.read_csv("pases_inglaterra.csv")
 
@@ -42,3 +46,41 @@ for _, fila in aristas.iterrows():
 
 print("Nodos:", G.number_of_nodes())
 print("Aristas:", G.number_of_edges())
+
+plt.figure(figsize=(14, 10))
+
+pos = nx.spring_layout(G, seed=42, k=0.7)
+
+pesos = [G[u][v]["weight"] for u, v in G.edges()]
+grosor_aristas = [peso / 5 for peso in pesos]
+
+nx.draw_networkx_nodes(
+    G,
+    pos,
+    node_size=1200,
+    node_color="lightblue"
+)
+
+nx.draw_networkx_edges(
+    G,
+    pos,
+    width=grosor_aristas,
+    arrows=True,
+    arrowstyle="->",
+    arrowsize=15,
+    edge_color="gray",
+    alpha=0.6
+)
+
+nx.draw_networkx_labels(
+    G,
+    pos,
+    font_size=8,
+    font_weight="bold"
+)
+
+plt.title("Grafo de pases completados - Inglaterra, fase de grupos")
+plt.axis("off")
+plt.tight_layout()
+plt.savefig("grafo_inglaterra.png", dpi=300)
+plt.show()
