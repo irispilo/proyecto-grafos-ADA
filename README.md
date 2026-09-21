@@ -2,146 +2,131 @@
 
 ## Objetivo
 
-Analizar la red de pases de la selección de Inglaterra durante la fase de grupos del Mundial Qatar 2022, utilizando grafos dirigidos y ponderados para interpretar su estilo de juego.
+Analizar la red de pases de la selección de Inglaterra en cada uno de sus tres partidos de la fase de grupos del Mundial Qatar 2022, utilizando un grafo dirigido y ponderado por partido, para interpretar su estilo de juego y ver cómo cambió según el rival.
 
-El objetivo principal del proyecto no es únicamente construir el grafo, sino interpretar qué muestra la estructura de la red sobre la forma en que Inglaterra circuló el balón.
+El objetivo principal del proyecto no es únicamente construir los grafos, sino interpretar qué muestra su estructura sobre la forma en que Inglaterra circuló el balón.
 
 ## Datos utilizados
 
-Se utilizó el archivo `pases_inglaterra.csv`, que contiene registros de pases realizados por Inglaterra durante el Mundial Qatar 2022.
+Se utilizó el archivo `pases_inglaterra.csv`, que contiene los pases de Inglaterra durante el Mundial. Se filtraron únicamente los partidos de fase de grupos:
 
-Para este análisis se filtraron únicamente los partidos de fase de grupos:
+| Partido                    | Fecha      | Resultado* |
+| -------------------------- | ---------- | ---------- |
+| Inglaterra vs Iran         | 2022-11-21 | 6 - 2      |
+| Inglaterra vs United States | 2022-11-25 | 0 - 0      |
+| Inglaterra vs Wales        | 2022-11-29 | 3 - 0      |
 
-* Inglaterra vs Iran
-* Inglaterra vs United States
-* Inglaterra vs Wales
+\* El marcador no viene en el CSV; se agrega como contexto para la interpretación.
 
-También se utilizaron únicamente los pases con resultado `Complete`, ya que estos representan pases que sí llegaron correctamente al receptor.
+Solo se utilizaron los pases con resultado `Complete`, ya que representan pases que sí llegaron al receptor.
 
 ## Limpieza de datos
 
-A partir del archivo original, se aplicaron los siguientes filtros:
+1. Se conservaron únicamente los registros donde `fase` es `Group Stage`.
+2. Se conservaron únicamente los registros donde `resultado` es `Complete`.
+3. Se seleccionaron solo las columnas necesarias: `match_id`, `fecha`, `oponente`, `jugador_nombre` y `receptor_nombre`. Se descartó `longitud_pase` porque el peso de las aristas no depende de ella.
 
-1. Se conservaron únicamente los registros donde la columna `fase` fuera igual a `Group Stage`.
-2. Se conservaron únicamente los registros donde la columna `resultado` fuera igual a `Complete`.
-3. Se seleccionaron las columnas necesarias para construir el grafo:
-
-* `match_id`
-* `fecha`
-* `oponente`
-* `jugador_nombre`
-* `receptor_nombre`
-* `longitud_pase`
-
-Después del filtrado, se obtuvo una base de datos con los pases completados de Inglaterra durante sus tres partidos de fase de grupos.
+De los 2,058 pases de la fase de grupos quedaron 1,799 pases completados.
 
 ## Modelo de grafo
 
-El grafo construido es un grafo dirigido y ponderado.
+Se construyó **un grafo dirigido y ponderado por partido**.
 
 * Los nodos representan jugadores.
-* Las aristas representan pases completados entre jugadores.
-* La dirección de la arista indica quién hizo el pase y quién lo recibió.
-* El peso de la arista representa la cantidad de pases completados entre dos jugadores.
+* Las aristas representan pases completados de un jugador (emisor) a otro (receptor).
+* El peso de la arista es la cantidad de pases completados entre ese par de jugadores en el partido.
 
-Se eligió un grafo dirigido porque un pase tiene dirección. Por ejemplo, un pase de John Stones a Luke Shaw no representa lo mismo que un pase de Luke Shaw a John Stones.
+Decisiones y justificación:
 
-Se eligió un grafo ponderado porque entre dos jugadores puede haber múltiples pases. El peso permite representar la fuerza de esa conexión dentro de la red.
+* **Dirigido:** un pase tiene emisor y receptor, y las dos direcciones no son iguales. Por ejemplo, contra Estados Unidos Maguire le dio 35 pases a Stones, pero Stones le dio 21 a Maguire. Un grafo no dirigido perdería esa asimetría.
+* **Ponderado:** entre dos jugadores hay muchos pases; el peso mide la fuerza de la conexión.
+* **Un grafo por partido:** un grafo consolidado promedia los tres partidos y esconde diferencias. Con un grafo por partido se puede ver si el estilo cambió según el rival y el marcador.
+* **Solo pases completados:** son los que construyen circulación real de balón entre jugadores.
 
-## Construcción del grafo
-
-Primero se agruparon los pases por jugador emisor y jugador receptor. Luego se contó cuántas veces ocurrió cada conexión.
-
-Por ejemplo, si John Stones le pasó el balón varias veces a Harry Maguire, esa relación se representa como una sola arista con un peso igual al número total de pases completados entre ambos.
-
-```text
-John Stones -> Harry Maguire
-peso = cantidad de pases completados
-```
-
-El grafo final contiene:
-
-* 20 nodos
-* 240 aristas
+| Partido             | Pases completos | Nodos | Aristas |
+| ------------------- | --------------: | ----: | ------: |
+| vs Iran             |             746 |    16 |     142 |
+| vs United States    |             500 |    14 |     113 |
+| vs Wales            |             553 |    16 |     138 |
 
 ## Métricas utilizadas
 
-Se calcularon las siguientes métricas para cada jugador:
+Se calcularon para cada jugador en cada partido (`metricas_por_partido.csv`):
 
 | Métrica               | Descripción                                                           |
 | --------------------- | --------------------------------------------------------------------- |
-| `pases_dados`         | Cantidad de pases completados realizados por el jugador               |
-| `pases_recibidos`     | Cantidad de pases completados recibidos por el jugador                |
-| `total_participacion` | Suma de pases dados y pases recibidos                                 |
-| `conexiones_salida`   | Cantidad de jugadores distintos a los que el jugador le pasó el balón |
-| `conexiones_entrada`  | Cantidad de jugadores distintos de los que el jugador recibió pases   |
-
-Estas métricas permiten identificar qué jugadores participaron más en la circulación del balón y qué tan conectados estuvieron dentro de la red.
-
-## Resultados principales
-
-Los jugadores con mayor participación total en la red fueron:
-
-| Jugador                | Pases dados | Pases recibidos | Participación total |
-| ---------------------- | ----------: | --------------: | ------------------: |
-| John Stones            |         278 |             269 |                 547 |
-| Luke Shaw              |         224 |             210 |                 434 |
-| Harry Maguire          |         211 |             203 |                 414 |
-| Declan Rice            |         193 |             168 |                 361 |
-| Jude Bellingham        |         174 |             170 |                 344 |
-| Kieran Trippier        |         165 |             135 |                 300 |
-| Jordan Pickford        |          68 |              64 |                 132 |
-| Mason Mount            |          59 |              69 |                 128 |
-| Jordan Brian Henderson |          59 |              63 |                 122 |
-| Marcus Rashford        |          40 |              61 |                 101 |
-
-Las conexiones con mayor peso fueron:
-
-| Conexión                       | Peso |
-| ------------------------------ | ---: |
-| Harry Maguire -> John Stones   |   73 |
-| John Stones -> Harry Maguire   |   59 |
-| Harry Maguire -> Luke Shaw     |   50 |
-| Declan Rice -> John Stones     |   49 |
-| Luke Shaw -> Harry Maguire     |   49 |
-| Kieran Trippier -> John Stones |   44 |
-| John Stones -> Kieran Trippier |   34 |
-| Declan Rice -> Luke Shaw       |   30 |
-| John Stones -> Declan Rice     |   30 |
-| Jude Bellingham -> Luke Shaw   |   30 |
+| `pases_dados`         | Pases completados realizados por el jugador                           |
+| `pases_recibidos`     | Pases completados recibidos por el jugador                            |
+| `total_participacion` | Suma de pases dados y recibidos                                       |
+| `conexiones_salida`   | Jugadores distintos a los que el jugador le pasó el balón             |
+| `conexiones_entrada`  | Jugadores distintos de los que el jugador recibió pases               |
 
 ## Visualizaciones
 
-El proyecto genera dos visualizaciones:
+Se genera una imagen por partido:
 
-* `grafo_inglaterra.png`: grafo completo de pases.
-* `grafo_inglaterra_conexiones_fuertes.png`: grafo filtrado con las conexiones más fuertes.
+* `grafo_inglaterra_vs_iran.png`
+* `grafo_inglaterra_vs_united_states.png`
+* `grafo_inglaterra_vs_wales.png`
 
-El grafo completo muestra todas las conexiones de pases completados entre jugadores. Sin embargo, debido a que contiene muchas aristas, puede verse saturado.
+Cada grafo completo tiene más de 110 aristas y no se lee bien, por lo que en la imagen solo se dibujan las conexiones con **10 o más pases completados** (23 en Irán, 15 contra Estados Unidos y 12 contra Gales). El umbral es menor que el que se usaría para los tres partidos juntos porque cada partido tiene menos pases: con un umbral de 20, contra Gales quedaría una sola arista (el máximo es 21). El grosor de la flecha es proporcional al peso y cada flecha muestra su valor.
 
-Por esa razón, también se generó una segunda visualización filtrada, mostrando únicamente las conexiones con peso mayor o igual a 20 pases completados. Este umbral se eligió porque deja únicamente las relaciones más repetidas de la red (por encima del rango típico de conexiones ocasionales), facilitando identificar las relaciones principales dentro de la red de pases.
+## Resultados por partido
+
+### Inglaterra vs Iran
+
+| Jugador         | Pases dados | Pases recibidos | Participación total |
+| --------------- | ----------: | --------------: | ------------------: |
+| John Stones     |         117 |             112 |                 229 |
+| Luke Shaw       |         104 |              97 |                 201 |
+| Jude Bellingham |          94 |              86 |                 180 |
+| Declan Rice     |          92 |              85 |                 177 |
+| Kieran Trippier |          84 |              74 |                 158 |
+
+Conexiones más fuertes: Trippier -> Stones (29), Rice -> Stones (28), Stones -> Maguire (19), Stones -> Trippier (19), Maguire <-> Shaw (18 en cada sentido).
+
+### Inglaterra vs United States
+
+| Jugador         | Pases dados | Pases recibidos | Participación total |
+| --------------- | ----------: | --------------: | ------------------: |
+| John Stones     |          86 |              85 |                 171 |
+| Harry Maguire   |          70 |              64 |                 134 |
+| Luke Shaw       |          69 |              62 |                 131 |
+| Kieran Trippier |          64 |              51 |                 115 |
+| Declan Rice     |          56 |              47 |                 103 |
+
+Conexiones más fuertes: Maguire -> Stones (35), Stones -> Maguire (21), Shaw -> Maguire (19), Rice -> Stones (16), Stones <-> Trippier (15 en cada sentido).
+
+### Inglaterra vs Wales
+
+| Jugador                | Pases dados | Pases recibidos | Participación total |
+| ---------------------- | ----------: | --------------: | ------------------: |
+| Harry Maguire          |          77 |              82 |                 159 |
+| John Stones            |          75 |              72 |                 147 |
+| Jordan Brian Henderson |          50 |              52 |                 102 |
+| Luke Shaw              |          51 |              51 |                 102 |
+| Jude Bellingham        |          47 |              48 |                  95 |
+
+Conexiones más fuertes: Maguire -> Stones (21), Stones -> Maguire (19), Maguire -> Shaw (18), Stones -> Henderson (15), Pickford -> Maguire (15), Stones -> Walker (13).
 
 ## Interpretación
 
-El grafo muestra que Inglaterra concentró gran parte de la circulación del balón en jugadores defensivos y mediocampistas. John Stones fue el jugador con mayor participación total, seguido por Luke Shaw, Harry Maguire, Declan Rice y Jude Bellingham.
+**El eje de la circulación fue muy parecido en los tres partidos.** John Stones es el primero o el segundo en participación en los tres partidos, Luke Shaw está en el top 5 de los tres, y Harry Maguire lidera contra Gales y es segundo contra Estados Unidos. Ningún delantero entra en el top 5 de ningún partido. Esto indica que Inglaterra construía desde atrás: los centrales y el lateral izquierdo sostenían la posesión y no solo defendían. La conexión Maguire-Stones, en ambos sentidos, aparece entre las conexiones fuertes de los tres grafos.
 
-La presencia de John Stones, Harry Maguire, Luke Shaw y Kieran Trippier entre los jugadores más participativos sugiere que Inglaterra construía frecuentemente desde la zona defensiva. Esto indica una intención de iniciar el juego desde atrás, utilizando a los defensas centrales y laterales como base para la circulación del balón.
+**Contra Irán (6-2) el juego fue más coral y más profundo en el mediocampo.** Fue el partido con más pases completados (746) y con más conexiones fuertes (23). Rice, Bellingham y Trippier están entre los cinco con más participación, y las dos conexiones más fuertes (Trippier -> Stones y Rice -> Stones) llegan a Stones desde el lateral y desde el pivote. El grafo muestra una red densa entre seis jugadores, típica de un equipo que domina el balón y tiene varias salidas por cada pase. Es compatible con un partido en el que Inglaterra dominó la posesión y ganó con holgura. Maguire, en cambio, participó menos que en los otros dos partidos (121).
 
-Las conexiones más fuertes se dieron principalmente entre defensas centrales, laterales y mediocampistas. Destaca especialmente la relación entre Harry Maguire y John Stones, que fue la conexión más repetida en la red. También aparecen conexiones importantes entre Maguire y Luke Shaw, Declan Rice y John Stones, y Kieran Trippier y John Stones.
+**Contra Estados Unidos (0-0) la circulación se concentró entre los centrales.** Fue el partido con menos pases (500), menos nodos (14) y menos conexiones fuertes que Irán (15), y tiene la arista más pesada de todo el análisis: Maguire -> Stones con 35 pases. Bellingham sale del top 5 y Rice cae al quinto lugar con 103 de participación. La lectura futbolística es que Inglaterra mantuvo la pelota, pero le costó progresar por el centro: el balón se movió mucho entre los defensas y menos hacia los mediocampistas y delanteros, algo consistente con un 0-0 ante un rival ordenado y cerrado.
 
-Desde el punto de vista futbolístico, esto puede interpretarse como un estilo de juego basado en la posesión, la salida ordenada desde atrás y la progresión controlada. Inglaterra no parece depender únicamente de pases directos hacia los delanteros, sino que mueve el balón por medio de sus defensas y mediocampistas antes de avanzar.
+**Contra Gales (3-0) apareció el arquero y cambió la banda derecha.** Maguire pasa a ser el jugador con más participación (159), por encima de Stones, y Pickford -> Maguire (15) y Pickford -> Stones (11) entran entre las conexiones fuertes, señal de salida de balón desde el arquero. Kyle Walker y Henderson aparecen en las conexiones fuertes de este partido (Stones <-> Walker con 13 en cada sentido, Stones -> Henderson con 15), mientras que Trippier apenas participó (17 pases dados). Es el partido con menos conexiones fuertes (12) y una red menos densa en el mediocampo, con más peso en la línea defensiva.
 
-Declan Rice y Jude Bellingham también tuvieron una alta participación, lo que muestra que el mediocampo fue importante para conectar la defensa con zonas más adelantadas. Esto refuerza la idea de un equipo que busca mantener control del balón y avanzar mediante asociaciones entre jugadores cercanos.
-
-En conjunto, el grafo sugiere que Inglaterra tuvo una estructura de circulación organizada, con fuerte participación de la línea defensiva y del mediocampo.
+**En conjunto**, el estilo de Inglaterra fue de posesión y salida ordenada desde atrás, con Stones y Maguire como eje. Lo que cambió entre partidos fue cuánto participó el mediocampo: mucho contra Irán, poco contra Estados Unidos, y con otra composición contra Gales. Ver los partidos por separado permite notar esto, cosa que un grafo consolidado promedia.
 
 ## Limitaciones del análisis
 
-Este análisis se basa únicamente en pases completados durante la fase de grupos. No se consideraron pases incompletos, posiciones exactas de los jugadores durante todo el partido, contexto táctico detallado, goles, tiros o presión del rival.
-
-Además, el peso de las aristas se calculó usando la cantidad de pases completados, no la longitud del pase ni la importancia táctica de cada acción.
-
-A pesar de estas limitaciones, el grafo permite observar patrones generales de circulación del balón y detectar qué jugadores fueron más importantes dentro de la red de pases.
+* Solo se consideraron pases completados; no se analizaron los incompletos, la posición de los jugadores, goles, tiros ni la presión del rival.
+* El peso mide la cantidad de pases, no su longitud ni su importancia táctica.
+* En cada imagen solo se muestran las conexiones de 10 o más pases, por lo que las relaciones ocasionales no se ven, aunque sí están en el grafo.
+* Con solo tres partidos, las diferencias entre ellos pueden deberse al rival, a la alineación o al marcador, y no necesariamente a un cambio de estilo.
 
 ## Cómo ejecutar el proyecto
 
@@ -159,16 +144,13 @@ python grafos_inglaterra.py
 
 ## Archivos generados
 
-Al ejecutar el programa se generan los siguientes archivos:
-
 ```text
-metricas_jugadores.csv
-grafo_inglaterra.png
-grafo_inglaterra_conexiones_fuertes.png
+grafo_inglaterra_vs_iran.png
+grafo_inglaterra_vs_united_states.png
+grafo_inglaterra_vs_wales.png
+metricas_por_partido.csv
 ```
 
 ## Conclusión
 
-La red de pases de Inglaterra en la fase de grupos del Mundial Qatar 2022 muestra un equipo con circulación ordenada, fuerte participación de defensas y mediocampistas, y una construcción frecuente desde atrás.
-
-Los jugadores más importantes en la red fueron John Stones, Luke Shaw, Harry Maguire, Declan Rice y Jude Bellingham. La estructura del grafo sugiere un estilo basado en posesión, control y progresión gradual del balón.
+Los grafos por partido muestran un equipo de posesión, con salida ordenada desde una línea defensiva muy participativa y con Stones y Maguire como eje de la circulación. El mediocampo tuvo un papel distinto en cada partido: fue protagonista contra Irán, quedó más aislado contra Estados Unidos y compartió peso con la defensa y el arquero contra Gales.

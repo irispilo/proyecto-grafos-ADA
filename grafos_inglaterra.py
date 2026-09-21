@@ -5,183 +5,102 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 
+# Solo se dibujan las conexiones con al menos este número de pases completados
+UMBRAL_CONEXION_FUERTE = 10
+TAMANO_NODO = 1600
+
+# Carga y limpieza: fase de grupos, pases completados y columnas necesarias
 df = pd.read_csv("pases_inglaterra.csv")
 
-df_grupos = df[df["fase"] == "Group Stage"].copy()
-df_completos = df_grupos[df_grupos["resultado"] == "Complete"].copy()
-
-columnas = [
-    "match_id",
-    "fecha",
-    "oponente",
-    "jugador_nombre",
-    "receptor_nombre",
-    "longitud_pase"
+df_grupos = df[df["fase"] == "Group Stage"]
+df_limpio = df_grupos[df_grupos["resultado"] == "Complete"][
+    ["match_id", "fecha", "oponente", "jugador_nombre", "receptor_nombre"]
 ]
-
-df_limpio = df_completos[columnas].copy()
 
 print("Pases en fase de grupos:", len(df_grupos))
 print("Pases completos:", len(df_limpio))
-print(df_limpio.head())
 
-aristas = (
-    df_limpio
-    .groupby(["jugador_nombre", "receptor_nombre"])
-    .size()
-    .reset_index(name="peso")
-    .sort_values("peso", ascending=False)
-)
+metricas_partidos = []
 
-# para grafo 2
-print(aristas.head(10))
-
-aristas_fuertes = aristas[aristas["peso"] >= 20].copy()
-
-print("\nConexiones fuertes:")
-print(aristas_fuertes)
-
-
-G = nx.DiGraph()
-
-G_fuertes = nx.DiGraph()
-
-for _, fila in aristas_fuertes.iterrows():
-    G_fuertes.add_edge(
-        fila["jugador_nombre"],
-        fila["receptor_nombre"],
-        weight=fila["peso"]
+# Un grafo dirigido y ponderado por cada partido de la fase de grupos
+for (match_id, oponente, fecha), pases in df_limpio.groupby(["match_id", "oponente", "fecha"]):
+    # Peso de cada arista = cantidad de pases completados de un emisor a un receptor
+    aristas = (
+        pases
+        .groupby(["jugador_nombre", "receptor_nombre"])
+        .size()
+        .reset_index(name="peso")
     )
-#------
-
-
-for _, fila in aristas.iterrows():
-    G.add_edge(
-        fila["jugador_nombre"],
-        fila["receptor_nombre"],
-        weight=fila["peso"]
+    G = nx.from_pandas_edgelist(
+        aristas,
+        source="jugador_nombre",
+        target="receptor_nombre",
+        edge_attr="peso",
+        create_using=nx.DiGraph
     )
 
-print("Nodos:", G.number_of_nodes())
-print("Aristas:", G.number_of_edges())
+    print(f"\nInglaterra vs {oponente} ({fecha})")
+    print("Pases completos:", len(pases))
+    print("Nodos:", G.number_of_nodes())
+    print("Aristas:", G.number_of_edges())
 
-metricas = []
+    # Métricas por jugador en este partido
+    for jugador in G.nodes():
+        dados = G.out_degree(jugador, weight="peso")
+        recibidos = G.in_degree(jugador, weight="peso")
+        metricas_partidos.append({
+            "oponente": oponente,
+            "jugador": jugador,
+            "pases_dados": dados,
+            "pases_recibidos": recibidos,
+            "total_participacion": dados + recibidos,
+            "conexiones_salida": G.out_degree(jugador),
+            "conexiones_entrada": G.in_degree(jugador)
+        })
 
-for jugador in G.nodes():
-    pases_dados = G.out_degree(jugador, weight="weight")
-    pases_recibidos = G.in_degree(jugador, weight="weight")
-    conexiones_salida = G.out_degree(jugador)
-    conexiones_entrada = G.in_degree(jugador)
+    # Subgrafo con las conexiones fuertes: es el que se dibuja para que se lea bien
+    G_fuerte = G.edge_subgraph(
+        [(u, v) for u, v, peso in G.edges(data="peso") if peso >= UMBRAL_CONEXION_FUERTE]
+    )
 
-    metricas.append({
-        "jugador": jugador,
-        "pases_dados": pases_dados,
-        "pases_recibidos": pases_recibidos,
-        "total_participacion": pases_dados + pases_recibidos,
-        "conexiones_salida": conexiones_salida,
-        "conexiones_entrada": conexiones_entrada
-    })
+    plt.figure(figsize=(14, 10))
+    pos = nx.spring_layout(G_fuerte, seed=42, k=1.5)
 
-df_metricas = pd.DataFrame(metricas)
+    # Grosor de la flecha proporcional al peso; la punta indica la dirección del pase
+    grosor = [peso / 8 + 1 for _, _, peso in G_fuerte.edges(data="peso")]
 
-df_metricas = df_metricas.sort_values(
-    "total_participacion",
-    ascending=False
+    nx.draw_networkx_nodes(G_fuerte, pos, node_size=TAMANO_NODO, node_color="lightgreen")
+    # node_size hace que la flecha termine en el borde del nodo y no quede tapada por él
+    nx.draw_networkx_edges(
+        G_fuerte,
+        pos,
+        width=grosor,
+        arrows=True,
+        arrowstyle="-|>",
+        arrowsize=20,
+        node_size=TAMANO_NODO,
+        edge_color="dimgray",
+        alpha=0.8,
+        connectionstyle="arc3,rad=0.25"
+    )
+    nx.draw_networkx_labels(G_fuerte, pos, font_size=8, font_weight="bold")
+    nx.draw_networkx_edge_labels(
+        G_fuerte,
+        pos,
+        edge_labels=nx.get_edge_attributes(G_fuerte, "peso"),
+        font_size=7,
+        connectionstyle="arc3,rad=0.25"
+    )
+
+    plt.title(f"Conexiones de {UMBRAL_CONEXION_FUERTE}+ pases - Inglaterra vs {oponente} ({fecha})")
+    plt.axis("off")
+    plt.tight_layout()
+    plt.savefig(f"grafo_inglaterra_vs_{oponente.lower().replace(' ', '_')}.png", dpi=300)
+    plt.close()
+
+# Métricas de los tres partidos en un solo archivo
+df_metricas = pd.DataFrame(metricas_partidos).sort_values(
+    ["oponente", "total_participacion"],
+    ascending=[True, False]
 )
-
-print("\nMetricas principales:")
-print(df_metricas.head(10))
-
-
-df_metricas.to_csv("metricas_jugadores.csv", index=False)
-
-#visualización:
-
-plt.figure(figsize=(14, 10))
-
-pos = nx.spring_layout(G, seed=42, k=0.7)
-
-pesos = [G[u][v]["weight"] for u, v in G.edges()]
-grosor_aristas = [peso / 5 for peso in pesos]
-
-nx.draw_networkx_nodes(
-    G,
-    pos,
-    node_size=1200,
-    node_color="lightblue"
-)
-
-nx.draw_networkx_edges(
-    G,
-    pos,
-    width=grosor_aristas,
-    arrows=True,
-    arrowstyle="->",
-    arrowsize=15,
-    edge_color="gray",
-    alpha=0.6
-)
-
-nx.draw_networkx_labels(
-    G,
-    pos,
-    font_size=8,
-    font_weight="bold"
-)
-
-plt.title("Grafo de pases completados - Inglaterra, fase de grupos")
-plt.axis("off")
-plt.tight_layout()
-plt.savefig("grafo_inglaterra.png", dpi=300)
-plt.close()
-
-
-#segunda visualización
-
-plt.figure(figsize=(14, 10))
-
-pos_fuertes = nx.spring_layout(G_fuertes, seed=42, k=0.9)
-
-pesos_fuertes = [G_fuertes[u][v]["weight"] for u, v in G_fuertes.edges()]
-grosor_fuertes = [peso / 8 for peso in pesos_fuertes]
-
-nx.draw_networkx_nodes(
-    G_fuertes,
-    pos_fuertes,
-    node_size=1600,
-    node_color="lightcoral"
-)
-
-nx.draw_networkx_edges(
-    G_fuertes,
-    pos_fuertes,
-    width=grosor_fuertes,
-    arrows=True,
-    arrowstyle="->",
-    arrowsize=18,
-    edge_color="gray",
-    alpha=0.7
-)
-
-nx.draw_networkx_labels(
-    G_fuertes,
-    pos_fuertes,
-    font_size=8,
-    font_weight="bold"
-)
-
-etiquetas_aristas = nx.get_edge_attributes(G_fuertes, "weight")
-
-nx.draw_networkx_edge_labels(
-    G_fuertes,
-    pos_fuertes,
-    edge_labels=etiquetas_aristas,
-    font_size=7
-)
-
-plt.title("Conexiones fuertes de pases - Inglaterra, fase de grupos")
-plt.axis("off")
-plt.tight_layout()
-plt.savefig("grafo_inglaterra_conexiones_fuertes.png", dpi=300)
-plt.close()
-
+df_metricas.to_csv("metricas_por_partido.csv", index=False)
